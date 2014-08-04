@@ -1,0 +1,195 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+Simple but powerful path-based routing for applications.
+
+### Basic Usage
+
+First, you must register your routes using the `register` boolean attribute.
+
+    <pvc-route register path="/users/:id" name="user"/>
+    
+Once registered, there are two ways to act on routing. First, you can declare
+another element (without the `register` attribute) and bind to its `active`
+attribute or, alternatively listen for its `enter` and `leave` events:
+
+    <pvc-route name="user" active="{{showProfile}}"/>
+    <pvc-route path="/users/:id" on-enter="{{loadProfile}}" on-leave="{{clearProfile}}"/>
+    
+Note that you can "hook" into a route either by its name or its path. Names are
+only used for developer-friendly reference, they have no other effect.
+
+@element pvc-route
+@blurb Element providing solution to no problem in particular.
+@status alpha
+@homepage http://divshot.github.io/pvc-route
+-->
+<polymer-element name="pvc-route" attributes="path name register active">
+<script>
+(function() {
+  
+var _routes = [];
+var _routePaths = {};
+var _routeNames = {};
+
+var Route = function(path, options) {
+  options = options || {};
+  
+  this.path = path;
+  // thanks to pazguille/path
+  this.regexp = new RegExp('^' + this.path.replace(/:\w+/g, '([^\\/]+)').replace(/\//g, '\\/') + '$');
+  
+  this.segments = (this.path.match(/:\w+/g) || []).map(function(seg) {
+    if (seg.indexOf(':') === 0) { return seg.substr(1); }
+  });
+  
+  this.name = options.name;
+}
+
+Route.prototype.match = function(p) {
+  var match = p.match(this.regexp);
+  if (match) {
+    var params = {};
+    for (var i = 1; i < match.length; i++) {
+      params[this.segments[i-1]] = match[i];
+    }
+    return params;
+  } else {
+    return false;
+  }
+}
+
+var _recognize = function(path) {
+  for (i in _routes) {
+    var matched = _routes[i].match(path);
+    if (matched) return [_routes[i], matched];
+  }
+  return false;
+}
+
+var _navigate = function(path, options) {
+  options = options || {};
+  
+  if (options.replace) {
+    history.replaceState({}, '', path);
+  } else {
+    history.pushState({}, '', path);
+  }
+  
+  if (!options.silent) { _fire(); }
+}
+
+var _fire =function() {
+  console.log("_fire");
+  var match = _recognize(window.location.pathname);
+  if (match) {
+    var evt = new CustomEvent('pvc-route', {detail: {
+      route: match[0],
+      params: match[1]
+    }});
+    
+    console.log("Dispatching Event", evt);
+    document.dispatchEvent(evt);
+  }
+};
+  
+Polymer('pvc-route', {
+  /**
+   * Add to use this element to register a new route to the page routeset.
+   * 
+   * @attribute register
+   * @type boolean
+   * @default false
+   */
+  register: false,
+  /**
+   * The segmented description of the route. Use colons to specify variable
+   * parameters, e.g. `/users/:id`. You **must** specify a path if you are
+   * registering a new route.
+   * 
+   * @attribute path
+   * @type string
+   */
+  path: null,
+  /**
+   * A friendly name for this route, for example `user-profile`. You can use
+   * this to listen to the route instead of re-typing the fully qualified
+   * path.
+   * 
+   * @attribute name
+   * @type string
+   */
+  name: null,
+  /**
+   * Becomes `true` when the path matches the current route.
+   * 
+   * @attribute active
+   * @type boolean
+   * @default false
+   */
+  active: false,
+  
+  ready: function() {
+    if (this.register) { this.register(); }
+    
+    if (this.name) {
+      this.route = _routeNames[this.name];
+    } else if (this.path) {
+      this.route = _routePaths[this.path];
+    }
+    
+    if (this.route) {
+      document.addEventListener('pvc-route', this.confirm.bind(this));
+    } else {
+      console.warn("Listening for route '" + this.path || this.name + "', which has not been registered.");
+    }
+  },
+  confirm: function(e) {
+    console.log(e.detail.route, this.route);
+    if (e.detail.route === this.route) {
+      if (this.active) { return; }
+      this.active = true;
+      this.fire('enter', e.detail);
+    } else {
+      if (this.active) {
+        this.active = false;
+        this.fire('leave');
+      }
+    }
+  },
+  register: function() {
+    var route = new Route(this.path, {name: this.name});
+    _routes.push(route);
+    if (this.name) { _routeNames[this.name] = route; }
+    if (this.path) { _routePaths[this.path] = route; }
+  },
+  /**
+   * Navigate to a new URL using the HTML5 History API. Takes two arguments
+   * 
+   * @method navigate
+   * @param boolean path The path to which you want to navigate.
+   * @param object options Specify `replace` if you don't want to create a history entry. Specify `silent` if you don't want to trigger event handlers.
+   */
+  navigate: function(path, options) {
+    _navigate(path, options);
+  },
+  get routeset() {
+    return _routes;
+  }
+  
+  /**
+   * Fired when navigation lands on this element's route. The `detail` for this
+   * event contains a `params` object as well as the `route` object.
+   * 
+   * @event enter
+   */
+   
+   /**
+    * Fired when navigation leaves this element's route.
+    * 
+    * @event leave
+    */
+});
+})();
+</script>
+</polymer-element>

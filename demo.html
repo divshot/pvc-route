@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>pvc-route Demo</title>
+
+  <script src="../platform/platform.js"></script>
+  <link rel="import" href="pvc-route.html">
+
+</head>
+<body unresolved>
+
+  <p>An `pvc-route` looks like this:</p>
+
+  <pvc-route register path="/users/:id"></pvc-route>
+  <pvc-route register path="/about"></pvc-route>
+  
+  <button onclick="document.querySelector('pvc-route').navigate('/users/123')">Navigate</button>
+  
+  <script type="text/javascript" charset="utf-8">
+    document.addEventListener('polymer-ready', function() {
+      document.querySelector('pvc-route').addEventListener('enter', function(e) {
+        console.log(e.detail);
+      })
+    });
+  </script>
+</body>
+</html>
